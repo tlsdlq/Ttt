@@ -180,7 +180,7 @@ export default {
             }
         }
     }
-    svg += `g>`;
+    svg += `</g>`;
 
     const renderCommentsRecursive = (comments, depth) => {
         let subSvg = '';
