@@ -17,7 +17,7 @@ function wrapText(text, maxWidth, fontSize = 15) { if (!text) return [' ']; cons
 function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
 // 설정
-const ALLOWED_IMAGE_DOMAINS = ['i.imgur.com', 'i.ibb.co', 'itimg.kr'];
+const ALLOWED_IMAGE_DOMAINS = ['i.imgur.com', 'i.ibb.co'];
 const IMAGE_KEYWORDS = {
     '랜덤': 'https://picsum.photos/200/300',
     '주의': 'https://i.imgur.com/dJ8vU52.png',
@@ -25,14 +25,14 @@ const IMAGE_KEYWORDS = {
 };
 
 // 이미지 처리
-function getImageUrl(line) {
-    const trimmedLine = line.trim();
-    const keywordMatch = trimmedLine.match(/^\{img:(.+?)\}$/);
+function getImageUrl(text) {
+    const trimmed = text.trim();
+    const keywordMatch = trimmed.match(/^\{img:(.+?)\}$/);
     if (keywordMatch && IMAGE_KEYWORDS[keywordMatch[1]]) {
         return IMAGE_KEYWORDS[keywordMatch[1]];
     }
     try {
-        const url = new URL(trimmedLine);
+        const url = new URL(trimmed);
         if (url.protocol === 'https:' && ALLOWED_IMAGE_DOMAINS.includes(url.hostname)) {
             return url.href;
         }
@@ -102,32 +102,22 @@ export default {
         const processed = [];
         if (!text) return processed;
 
-        const imgTagRegex = /(\{img:.+?\})/g;
-        const parts = text.split(imgTagRegex).filter(part => part); // 태그 기준으로 나누고 빈 문자열 제거
+        const allowedDomainsPattern = ALLOWED_IMAGE_DOMAINS.join('|').replace(/\./g, '\\.');
+        const combinedRegex = new RegExp(`(\\{img:.+?\\}|https?://(?:${allowedDomainsPattern})/[^\\s]*)`, 'g');
+        
+        const parts = text.split(combinedRegex).filter(part => part);
 
         for (const part of parts) {
-            // 1. 일반 URL 이미지를 먼저 확인 (이것 역시 한 줄을 차지해야 함)
-            let imageUrl = getImageUrl(part);
+            const imageUrl = getImageUrl(part);
             if (imageUrl) {
                 const dataUri = await getImageDataUri(imageUrl);
                 if (dataUri) {
                     processed.push({ type: 'image', uri: dataUri });
-                    continue; // 이미지 처리 후 다음 파트로 넘어감
-                }
-            }
-            
-            // 2. 텍스트 내에 포함된 {img:키워드} 처리
-            if (imgTagRegex.test(part)) {
-                imageUrl = getImageUrl(part); // {img:키워드} 태그에서 URL 추출
-                if (imageUrl) {
-                     const dataUri = await getImageDataUri(imageUrl);
-                     if (dataUri) processed.push({ type: 'image', uri: dataUri });
                 }
             } else {
-                // 3. 순수 텍스트 처리 (기존처럼 줄바꿈 문자로 다시 나눔)
                 const textLines = part.split('\n');
                 for (const line of textLines) {
-                    if (line) { // 빈 줄은 무시
+                    if (line) {
                         processed.push({ type: 'text', text: line });
                     }
                 }
