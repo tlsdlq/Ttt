@@ -18,7 +18,7 @@ function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g
 
 // 설정
 const IMAGE_KEYWORDS = {
-    '랜덤': 'https://picsum.photos/200/300',
+    '랜덤': 'https://picsum.photos/900/300',
     '주의': 'https://i.imgur.com/dJ8vU52.png',
     '하트': 'https://i.imgur.com/bY2a3y4.png',
 };
