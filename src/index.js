@@ -17,7 +17,7 @@ function wrapText(text, maxWidth, fontSize = 15) { if (!text) return [' ']; cons
 function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
 // 설정
-const ALLOWED_IMAGE_DOMAINS = ['i.imgur.com', 'i.ibb.co'];
+const ALLOWED_IMAGE_DOMAINS = ['i.imgur.com', 'i.ibb.co', 'itimg.kr'];
 const IMAGE_KEYWORDS = {
     '환영': 'https://i.imgur.com/QZ75a2B.png',
     '주의': 'https://i.imgur.com/dJ8vU52.png',
