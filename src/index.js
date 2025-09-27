@@ -97,16 +97,40 @@ export default {
       }
     }
     
+    // [수정된 부분]
     const processContent = async (text) => {
         const processed = [];
-        const paragraphs = (text || '').split('\n');
-        for (const p of paragraphs) {
-            const imageUrl = getImageUrl(p);
+        if (!text) return processed;
+
+        const imgTagRegex = /(\{img:.+?\})/g;
+        const parts = text.split(imgTagRegex).filter(part => part); // 태그 기준으로 나누고 빈 문자열 제거
+
+        for (const part of parts) {
+            // 1. 일반 URL 이미지를 먼저 확인 (이것 역시 한 줄을 차지해야 함)
+            let imageUrl = getImageUrl(part);
             if (imageUrl) {
                 const dataUri = await getImageDataUri(imageUrl);
-                if (dataUri) { processed.push({ type: 'image', uri: dataUri }); }
+                if (dataUri) {
+                    processed.push({ type: 'image', uri: dataUri });
+                    continue; // 이미지 처리 후 다음 파트로 넘어감
+                }
+            }
+            
+            // 2. 텍스트 내에 포함된 {img:키워드} 처리
+            if (imgTagRegex.test(part)) {
+                imageUrl = getImageUrl(part); // {img:키워드} 태그에서 URL 추출
+                if (imageUrl) {
+                     const dataUri = await getImageDataUri(imageUrl);
+                     if (dataUri) processed.push({ type: 'image', uri: dataUri });
+                }
             } else {
-                processed.push({ type: 'text', text: p });
+                // 3. 순수 텍스트 처리 (기존처럼 줄바꿈 문자로 다시 나눔)
+                const textLines = part.split('\n');
+                for (const line of textLines) {
+                    if (line) { // 빈 줄은 무시
+                        processed.push({ type: 'text', text: line });
+                    }
+                }
             }
         }
         return processed;
