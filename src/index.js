@@ -19,7 +19,7 @@ function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g
 // 설정
 const ALLOWED_IMAGE_DOMAINS = ['i.imgur.com', 'i.ibb.co', 'itimg.kr'];
 const IMAGE_KEYWORDS = {
-    '환영': 'https://i.imgur.com/QZ75a2B.png',
+    '고양이': 'https://unsplash.com/ko/%EC%82%AC%EC%A7%84/%ED%9D%B0%EC%83%89%EA%B3%BC-%ED%8C%8C%EB%9E%80%EC%83%89-%EC%84%AC%EC%9C%A0%EC%97%90-%EA%B0%88%EC%83%89-%EC%96%BC%EB%A3%A9-%EC%83%88%EB%81%BC-%EA%B3%A0%EC%96%91%EC%9D%B4-lAjk-UJa85c',
     '주의': 'https://i.imgur.com/dJ8vU52.png',
     '하트': 'https://i.imgur.com/bY2a3y4.png',
 };
