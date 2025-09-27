@@ -17,7 +17,6 @@ function wrapText(text, maxWidth, fontSize = 15) { if (!text) return [' ']; cons
 function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
 // 설정
-const ALLOWED_IMAGE_DOMAINS = ['i.imgur.com', 'i.ibb.co'];
 const IMAGE_KEYWORDS = {
     '랜덤': 'https://picsum.photos/200/300',
     '주의': 'https://i.imgur.com/dJ8vU52.png',
@@ -25,20 +24,6 @@ const IMAGE_KEYWORDS = {
 };
 
 // 이미지 처리
-function getImageUrl(text) {
-    const trimmed = text.trim();
-    const keywordMatch = trimmed.match(/^\{img:(.+?)\}$/);
-    if (keywordMatch && IMAGE_KEYWORDS[keywordMatch[1]]) {
-        return IMAGE_KEYWORDS[keywordMatch[1]];
-    }
-    try {
-        const url = new URL(trimmed);
-        if (url.protocol === 'https:' && ALLOWED_IMAGE_DOMAINS.includes(url.hostname)) {
-            return url.href;
-        }
-    } catch (e) {}
-    return null;
-}
 async function getImageDataUri(url) {
   try {
     const response = await fetch(url);
@@ -97,29 +82,32 @@ export default {
       }
     }
     
-    // [수정된 부분]
+    // [새롭게 변경된 부분]
     const processContent = async (text) => {
         const processed = [];
         if (!text) return processed;
 
-        const allowedDomainsPattern = ALLOWED_IMAGE_DOMAINS.join('|').replace(/\./g, '\\.');
-        const combinedRegex = new RegExp(`(\\{img:.+?\\}|https?://(?:${allowedDomainsPattern})/[^\\s]*)`, 'g');
-        
-        const parts = text.split(combinedRegex).filter(part => part);
+        const imgTagRegex = /\{img:(.+?)\}/g;
+        const parts = text.split(imgTagRegex); // 태그를 기준으로 텍스트를 나눔
 
-        for (const part of parts) {
-            const imageUrl = getImageUrl(part);
-            if (imageUrl) {
-                const dataUri = await getImageDataUri(imageUrl);
-                if (dataUri) {
-                    processed.push({ type: 'image', uri: dataUri });
+        for (let i = 0; i < parts.length; i++) {
+            if (i % 2 === 0) { // 짝수 인덱스는 일반 텍스트
+                if (parts[i]) {
+                    parts[i].split('\n').forEach(line => {
+                        if (line) processed.push({ type: 'text', text: line });
+                    });
                 }
-            } else {
-                const textLines = part.split('\n');
-                for (const line of textLines) {
-                    if (line) {
-                        processed.push({ type: 'text', text: line });
+            } else { // 홀수 인덱스는 이미지 키워드
+                const keyword = parts[i];
+                const imageUrl = IMAGE_KEYWORDS[keyword];
+
+                if (imageUrl) { // 키워드가 존재하면
+                    const dataUri = await getImageDataUri(imageUrl);
+                    if (dataUri) {
+                        processed.push({ type: 'image', uri: dataUri });
                     }
+                } else { // 키워드가 없으면
+                    processed.push({ type: 'text', text: `{img:${keyword}}` });
                 }
             }
         }
@@ -192,7 +180,7 @@ export default {
             }
         }
     }
-    svg += `</g>`;
+    svg += `g>`;
 
     const renderCommentsRecursive = (comments, depth) => {
         let subSvg = '';
