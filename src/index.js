@@ -9,6 +9,7 @@ function getTextWidth(text, fontSize = 15) {
     else if (/[a-z0-9]/.test(char)) { width += fontSize * 0.55; }
     else if (/\s/.test(char)) { width += fontSize * 0.3; }
     else if (/[?!.,]/.test(char)) { width += fontSize * 0.3; }
+    else if (/[□■]/.test(char)) { width += fontSize * 1.2; }
     else { width += fontSize * 0.5; }
   }
   return width;
@@ -23,8 +24,16 @@ const IMAGE_KEYWORDS = {
     '하트': 'https://i.imgur.com/bY2a3y4.png',
 };
 
+const SPECIAL_CHAR_SOURCES = {
+    '■': 'https://ibb.co/zhtLWyBs', 
+    '□': 'https://ibb.co/QvLhmL22', 
+};
+
 // 이미지 처리
 async function getImageDataUri(url) {
+  if (url.startsWith('data:image')) {
+    return url;
+  }
   try {
     const response = await fetch(url);
     if (!response.ok) return null;
@@ -39,6 +48,7 @@ async function getImageDataUri(url) {
     })(new Uint8Array(buffer));
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
+    console.error(`Failed to fetch image data for ${url}:`, error);
     return null;
   }
 }
@@ -49,6 +59,16 @@ export default {
     const cache = caches.default;
     let response = await cache.match(request);
     if (response) { return response; }
+
+    const processedSpecialCharImages = {};
+    const specialCharPromises = Object.entries(SPECIAL_CHAR_SOURCES).map(async ([char, url]) => {
+        const dataUri = await getImageDataUri(url);
+        if (dataUri) {
+            processedSpecialCharImages[char] = dataUri;
+        }
+    });
+    await Promise.all(specialCharPromises);
+
 
     const { searchParams } = new URL(request.url);
     const postData = searchParams.get('글') || '제목|작성자|0|0|0|내용이 없습니다.';
@@ -82,31 +102,31 @@ export default {
       }
     }
     
-    // [새롭게 변경된 부분]
     const processContent = async (text) => {
         const processed = [];
         if (!text) return processed;
-
+        const textWithNewlines = text.replace(/\《img:(.+?)\》/g, '\n《img:$1》\n');
         const imgTagRegex = /\《img:(.+?)\》/g;
-        const parts = text.split(imgTagRegex); // 태그를 기준으로 텍스트를 나눔
+        const parts = textWithNewlines.split(imgTagRegex);
 
         for (let i = 0; i < parts.length; i++) {
-            if (i % 2 === 0) { // 짝수 인덱스는 일반 텍스트
+            if (i % 2 === 0) {
                 if (parts[i]) {
                     parts[i].split('\n').forEach(line => {
-                        if (line) processed.push({ type: 'text', text: line });
+                        if (line) {
+                           processed.push({ type: 'text', text: line });
+                        }
                     });
                 }
-            } else { // 홀수 인덱스는 이미지 키워드
-                const keyword = parts[i];
+            } else {
+                const keyword = parts[i].trim();
                 const imageUrl = IMAGE_KEYWORDS[keyword];
-
-                if (imageUrl) { // 키워드가 존재하면
+                if (imageUrl) {
                     const dataUri = await getImageDataUri(imageUrl);
                     if (dataUri) {
                         processed.push({ type: 'image', uri: dataUri });
                     }
-                } else { // 키워드가 없으면
+                } else {
                     processed.push({ type: 'text', text: `{img:${keyword}}` });
                 }
             }
@@ -157,7 +177,7 @@ export default {
     const netUpvotes = (parseInt(upvotes) || 0) - (parseInt(dislikes) || 0);
     const theme = { bg: '#ffffff', border: '#e3e3e3', headerBlue: '#5c6bc0', headerText: '#ffffff', metaText: '#eeeeee', contentText: '#333', buttonBg: '#f8f8f8', buttonText: '#555', star: '#ffc107', commentHeader: '#666' };
     
-    let svg = `<svg width="780" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg"><style>.font { font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif; } .title { font-size: 20px; font-weight: 500; } .meta { font-size: 13px; } .content { font-size: 15px; fill: ${theme.contentText}; } .comment-author { font-size: 14px; font-weight: bold; fill: #111; } .comment-content { font-size: 14px; fill: #333; } .button-text { font-size: 14px; fill: ${theme.buttonText}; text-anchor: middle; }</style><rect width="100%" height="100%" fill="${theme.bg}" /><rect width="100%" height="100" fill="${theme.headerBlue}" /><g transform="translate(20, 0)">`;
+    let svg = `<svg width="780" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><style>.font { font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif; } .title { font-size: 20px; font-weight: 500; } .meta { font-size: 13px; } .content { font-size: 15px; fill: ${theme.contentText}; } .comment-author { font-size: 14px; font-weight: bold; fill: #111; } .comment-content { font-size: 14px; fill: #333; } .button-text { font-size: 14px; fill: ${theme.buttonText}; text-anchor: middle; }</style><rect width="100%" height="100%" fill="${theme.bg}" /><rect width="100%" height="100" fill="${theme.headerBlue}" /><g transform="translate(20, 0)">`;
     let titleX = 0;
     if (netUpvotes >= 20) {
         svg += `<text x="${titleX}" y="45" fill="${theme.star}" style="font-size:20px; font-weight:bold;">★</text>`; titleX += 25;
@@ -165,40 +185,67 @@ export default {
     svg += `<text x="${titleX}" y="45" class="font title" fill="${theme.headerText}">${escapeHtml(title)}</text>`;
     svg += `<text y="75" class="font meta" fill="${theme.metaText}"><tspan style="font-weight:500; fill:${theme.headerText};">${escapeHtml(author)}</tspan><tspan dx="15">조회 ${views || 0}</tspan><tspan dx="10">추천 ${netUpvotes}</tspan></text></g>`;
     
+    const renderTextWithInlineImages = (line, y, className, fontSize, xPos = 0) => {
+        let lineSvg = `<text y="${y}" class="font ${className}">`;
+        const specialChars = Object.keys(processedSpecialCharImages).join('');
+        if (!specialChars) { 
+            return `<text x="${xPos}" y="${y}" class="font ${className}">${escapeHtml(line)}</text>`;
+        }
+        
+        const regex = new RegExp(`([${specialChars}])`, 'g');
+        const parts = line.split(regex);
+        let currentX = xPos;
+
+        parts.forEach(part => {
+            if (processedSpecialCharImages[part]) {
+                const imgSize = fontSize * 1.1;
+                lineSvg += `</text><image xlink:href="${processedSpecialCharImages[part]}" x="${currentX}" y="${y - imgSize + (fontSize * 0.2)}" width="${imgSize}" height="${imgSize}" /><text y="${y}" class="font ${className}">`;
+                currentX += getTextWidth(part, fontSize);
+            } else {
+                const escapedPart = escapeHtml(part);
+                lineSvg += `<tspan x="${currentX}">${escapedPart}</tspan>`;
+                currentX += getTextWidth(part, fontSize);
+            }
+        });
+        lineSvg += `</text>`;
+        return lineSvg.replace(/<tspan x="0"><\/tspan>|<tspan x="(\d+)"><\/tspan>/g, '');
+    };
+
     let currentY = 130;
 
-    svg += `<g transform="translate(20, 0)">`;
     for (const item of processedContent) {
         if (item.type === 'image') {
-            svg += `<image href="${item.uri}" x="0" y="${currentY}" height="${IMAGE_HEIGHT}" width="740" preserveAspectRatio="xMidYMid meet" />`;
+            svg += `<g transform="translate(20, 0)"><image xlink:href="${item.uri}" x="0" y="${currentY}" height="${imageHeight}" width="740" preserveAspectRatio="xMidYMid meet" /></g>`;
             currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
         } else {
             const wrappedLines = wrapText(item.text, 740, 15);
             for (const line of wrappedLines) {
-                svg += `<text y="${currentY}" class="font content">${escapeHtml(line)}</text>`;
+                svg += `<g transform="translate(20, 0)">${renderTextWithInlineImages(line, currentY, 'content', 15)}</g>`;
                 currentY += 25;
             }
         }
     }
-    svg += `</g>`;
 
     const renderCommentsRecursive = (comments, depth) => {
         let subSvg = '';
         for (const comment of comments) {
             const xOffset = depth * 30;
-            subSvg += `<g transform="translate(${20 + xOffset}, ${currentY})">`;
-            if (depth > 0) { subSvg += `<text x="-18" y="0" style="font-size:16px; fill:#888;">↳</text>`; }
-            subSvg += `<text class="font comment-author">${escapeHtml(comment.author)}</text></g>`;
+            const authorY = currentY;
+            subSvg += `<g transform="translate(${20 + xOffset}, 0)">`;
+            if (depth > 0) { subSvg += `<text x="-18" y="${authorY}" style="font-size:16px; fill:#888;">↳</text>`; }
+            subSvg += renderTextWithInlineImages(comment.author, authorY, 'comment-author', 14);
+            subSvg += `</g>`;
             currentY += 22;
+
             for (const item of comment.processedContent) {
                 if (item.type === 'image') {
-                    subSvg += `<image href="${item.uri}" x="${20 + xOffset}" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" />`;
+                    subSvg += `<g transform="translate(${20 + xOffset}, 0)"><image xlink:href="${item.uri}" x="0" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" /></g>`;
                     currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
                 } else {
                     const maxWidth = 740 - xOffset;
                     const wrappedLines = wrapText(item.text, maxWidth, 14);
                     for (const line of wrappedLines) {
-                        subSvg += `<text x="${20 + xOffset}" y="${currentY}" class="font comment-content">${escapeHtml(line)}</text>`;
+                        subSvg += `<g transform="translate(${20 + xOffset}, 0)">${renderTextWithInlineImages(line, currentY, 'comment-content', 14)}</g>`;
                         currentY += 22;
                     }
                 }
