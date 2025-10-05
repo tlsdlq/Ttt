@@ -87,7 +87,7 @@ export default {
         const processed = [];
         if (!text) return processed;
 
-        const imgTagRegex = /\{img:(.+?)\}/g;
+        const imgTagRegex = /\《img:(.+?)\》/g;
         const parts = text.split(imgTagRegex); // 태그를 기준으로 텍스트를 나눔
 
         for (let i = 0; i < parts.length; i++) {
