@@ -18,8 +18,7 @@ function getTextWidth(text, fontSize = 15) {
 
 function wrapText(text, maxWidth, fontSize = 15) { if (!text) return [' ']; const words = text.split(' '); const lines = []; let currentLine = words[0] || ''; for (let i = 1; i < words.length; i++) { const word = words[i]; const testLine = currentLine + ' ' + word; if (getTextWidth(testLine, fontSize) < maxWidth) { currentLine = testLine; } else { lines.push(currentLine); currentLine = word; } } lines.push(currentLine); return lines; }
 
-function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
-
+function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, "\"").replace(/'/g, "'"); }
 
 
 // ■■■■■■■■■■■■■■■■■■설정■■■■■■■■■■■■■■■■■■
@@ -32,10 +31,10 @@ const IMAGE_KEYWORDS = {
 
 const INLINE_IMAGES = {
   '□': 'https://i.ibb.co/QvLhmL22/1300b95171be096511678bddb0ad145aa502c19a0fed9f27e936078afa0be6bd.webp', 
-  '■': 'https://i.ibb.co/zhtLWyBs/3d0ce56134aa5e30fc03c7f707d14978340abc683e0cb5b004f17ae577a667be.webp'};
+  '■': 'https://i.ibb.co/zhtLWyBs/3d0ce56134aa5e30fc03c7f707d14978340abc683e0cb5b004f17ae577a667be.webp'
+};
 
 // ■■■■■■■■■■■■■■■■■■설정■■■■■■■■■■■■■■■■■■
-
 
 
 // 이미지 처리
@@ -44,8 +43,11 @@ async function getImageDataUri(url) {
   try {
     const response = await fetch(url);
     if (!response.ok) return null;
+
     const contentType = response.headers.get('content-type') || 'image/png';
+    
     const buffer = await response.arrayBuffer();
+
     const base64 = ((arr) => {
         let a = "", b, c, d, e, f, g, i = 0;
         const h = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
@@ -53,12 +55,13 @@ async function getImageDataUri(url) {
         if (isNaN(c)) { a = a.slice(0, -2) + "=="; } else if (isNaN(d)) { a = a.slice(0, -1) + "="; }
         return a;
     })(new Uint8Array(buffer));
+
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
+    console.error(`Failed to get image data URI for ${url}:`, error);
     return null;
   }
 }
-
 
 
 // 핸들러
@@ -246,6 +249,7 @@ export default {
 
             for (const item of comment.processedContent) {
                 if (item.type === 'image') {
+                    // 댓글 이미지 렌더링
                     subSvg += `<image href="${item.uri}" x="${20 + xOffset}" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" />`;
                     currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
                 } else {
