@@ -6,7 +6,7 @@ function getTextWidth(text, fontSize = 15) {
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     if (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(char)) { width += fontSize; }
-    else if (/[□■]/.test(char)) { width += fontSize; } 
+    else if (/[□■]/.test(char)) { width += fontSize; }
     else if (/[A-Z]/.test(char)) { width += fontSize * 0.75; }
     else if (/[a-z0-9]/.test(char)) { width += fontSize * 0.55; }
     else if (/\s/.test(char)) { width += fontSize * 0.3; }
@@ -29,7 +29,7 @@ const IMAGE_KEYWORDS = {
     '하트': 'https://i.imgur.com/bY2a3y4.png',
 };
 
-const INLINE_IMAGE_KEYWORDS = {
+const INLINE_IMAGES = {
     '□': 'https://i.ibb.co/QvLhmL22/1300b95171be096511678bddb0ad145aa502c19a0fed9f27e936078afa0be6bd.webp', 
     '■': 'https://i.ibb.co/zhtLWyBs/3d0ce56134aa5e30fc03c7f707d14978340abc683e0cb5b004f17ae577a667be.webp', 
 };
@@ -40,7 +40,7 @@ const INLINE_IMAGE_KEYWORDS = {
 // 이미지 처리
 async function getImageDataUri(url) {
   try {
-    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+    const response = await fetch(url);
     if (!response.ok) return null;
     const contentType = response.headers.get('content-type') || 'image/png';
     const buffer = await response.arrayBuffer();
@@ -53,7 +53,6 @@ async function getImageDataUri(url) {
     })(new Uint8Array(buffer));
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
-    console.error("Image fetch error:", error);
     return null;
   }
 }
@@ -66,15 +65,13 @@ export default {
     const cache = caches.default;
     let response = await cache.match(request);
     if (response) { return response; }
+
     const inlineImageDataUris = new Map();
-    const inlineImagePromises = Object.entries(INLINE_IMAGE_KEYWORDS).map(async ([key, url]) => {
+    const inlineImagePromises = Object.entries(INLINE_IMAGES).map(async ([key, url]) => {
         const dataUri = await getImageDataUri(url);
-        if (dataUri) {
-            inlineImageDataUris.set(key, dataUri);
-        }
+        if (dataUri) inlineImageDataUris.set(key, dataUri);
     });
     await Promise.all(inlineImagePromises);
-
 
     const { searchParams } = new URL(request.url);
     const postData = searchParams.get('글') || '제목|작성자|0|0|0|내용이 없습니다.';
@@ -107,44 +104,29 @@ export default {
         } catch (e) {}
       }
     }
-    
+
     const processContent = async (text) => {
         const processed = [];
         if (!text) return processed;
-
-        const inlineImageRegex = new RegExp(`([${Object.keys(INLINE_IMAGE_KEYWORDS).join('')}])`, 'g');
         const imgTagRegex = /\《img:(.+?)\》/g;
         const parts = text.split(imgTagRegex);
-
         for (let i = 0; i < parts.length; i++) {
-            if (i % 2 === 0) { 
+            if (i % 2 === 0) {
                 if (parts[i]) {
                     parts[i].split('\n').forEach(line => {
-                        if (!line) return;
-                        const lineChunks = [];
-                        const subParts = line.split(inlineImageRegex).filter(p => p);
-                        
-                        subParts.forEach(chunk => {
-                            if (INLINE_IMAGE_KEYWORDS[chunk]) {
-                                lineChunks.push({ type: 'inline-image', key: chunk });
-                            } else {
-                                lineChunks.push({ type: 'text', text: chunk });
-                            }
-                        });
-                        processed.push({ type: 'line', chunks: lineChunks });
+                        if (line) processed.push({ type: 'text', text: line });
                     });
                 }
-            } else { // 블록 이미지 키워드
+            } else {
                 const keyword = parts[i];
                 const imageUrl = IMAGE_KEYWORDS[keyword];
-
                 if (imageUrl) {
                     const dataUri = await getImageDataUri(imageUrl);
                     if (dataUri) {
                         processed.push({ type: 'image', uri: dataUri });
                     }
                 } else {
-                    processed.push({ type: 'line', chunks: [{ type: 'text', text: `{img:${keyword}}` }] });
+                    processed.push({ type: 'text', text: `{img:${keyword}}` });
                 }
             }
         }
@@ -162,15 +144,12 @@ export default {
 
     const IMAGE_HEIGHT = 200;
     const IMAGE_MARGIN_BOTTOM = 10;
+
     const calculateProcessedHeight = (processedItems, maxWidth, fontSize, lineHeight) => {
         let height = 0;
         processedItems.forEach(item => {
-            if (item.type === 'image') {
-                height += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
-            } else if (item.type === 'line') {
-                let originalLineText = item.chunks.map(c => c.type === 'text' ? c.text : c.key).join('');
-                height += wrapText(originalLineText, maxWidth, fontSize).length * lineHeight;
-            }
+            if (item.type === 'image') { height += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM; }
+            else { height += wrapText(item.text, maxWidth, fontSize).length * lineHeight; }
         });
         return height;
     };
@@ -178,10 +157,10 @@ export default {
     const calculateCommentsHeight = (comments, depth) => {
         let height = 0;
         for (const comment of comments) {
-            height += 30; // 저자 이름 등 여백
+            height += 30;
             const maxWidth = 740 - (depth * 30);
             height += calculateProcessedHeight(comment.processedContent, maxWidth, 14, 22);
-            height += 8; // 댓글 간 여백
+            height += 8;
             height += calculateCommentsHeight(comment.children, depth + 1);
         }
         return height;
@@ -207,104 +186,65 @@ export default {
     
     let currentY = 130;
 
-    const renderProcessedContent = (processedItems, startX, initialY, fontSize, lineHeight, className) => {
-        let svgChunk = '';
-        let y = initialY;
-        for (const item of processedItems) {
-            if (item.type === 'image') {
-                svgChunk += `<image href="${item.uri}" x="${startX}" y="${y}" height="${IMAGE_HEIGHT}" width="${780 - startX*2}" preserveAspectRatio="xMidYMid meet" />`;
-                y += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
-            } else if (item.type === 'line') {
-                let originalLineText = item.chunks.map(c => c.type === 'text' ? c.text : c.key).join('');
-                const wrappedLines = wrapText(originalLineText, 780 - startX*2, fontSize);
-
-                for(const line of wrappedLines) {
-                    let currentX = startX;
-                    svgChunk += `<text x="${currentX}" y="${y}" class="font ${className}">${escapeHtml(line)}</text>`;
-                    y += lineHeight;
-                }
-            }
-        }
-        currentY = y; // 전역 y 업데이트
-        return svgChunk;
-    };
-    
-    const renderProcessedContentSimple = (processedItems, startX, initialY, fontSize, lineHeight, className) => {
-        let svgChunk = '';
-        let y = initialY;
-        const maxWidth = 780 - startX * 2;
-        
-        for (const item of processedItems) {
-            if (item.type === 'image') {
-                svgChunk += `<image href="${item.uri}" x="${startX}" y="${y}" height="${IMAGE_HEIGHT}" width="${maxWidth}" preserveAspectRatio="xMidYMid meet" />`;
-                y += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
-            } else if (item.type === 'line') {
-                const originalLineText = item.chunks.map(c => c.type === 'text' ? c.text : c.key).join('');
-                const wrappedLines = wrapText(originalLineText, maxWidth, fontSize);
-                
-                for (const wrappedLineText of wrappedLines) {
-                    let lineParts = wrappedLineText.split(new RegExp(`([${Object.keys(INLINE_IMAGE_KEYWORDS).join('')}])`, 'g')).filter(p => p);
-                    let currentX = startX;
-                    for (const part of lineParts) {
-                        if (inlineImageDataUris.has(part)) {
-                            const dataUri = inlineImageDataUris.get(part);
-                            svgChunk += `<image href="${dataUri}" x="${currentX}" y="${y - fontSize * 0.8}" width="${fontSize}" height="${fontSize}" />`;
-                            currentX += fontSize;
-                        } else {
-                            svgChunk += `<text x="${currentX}" y="${y}" class="font ${className}">${escapeHtml(part)}</text>`;
-                            currentX += getTextWidth(part, fontSize);
-                        }
+    svg += `<g transform="translate(20, 0)">`;
+    for (const item of processedContent) {
+        if (item.type === 'image') {
+            svg += `<image href="${item.uri}" x="0" y="${currentY}" height="${IMAGE_HEIGHT}" width="740" preserveAspectRatio="xMidYMid meet" />`;
+            currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
+        } else {
+            const wrappedLines = wrapText(item.text, 740, 15);
+            for (const line of wrappedLines) {
+                let currentX = 0;
+                const lineParts = line.split(/([□■])/g).filter(Boolean);
+                for(const part of lineParts) {
+                    if (inlineImageDataUris.has(part)) {
+                        const dataUri = inlineImageDataUris.get(part);
+                        svg += `<image href="${dataUri}" x="${currentX}" y="${currentY - 15 * 0.8}" width="15" height="15"/>`;
+                        currentX += 15;
+                    } else {
+                        svg += `<text x="${currentX}" y="${currentY}" class="font content">${escapeHtml(part)}</text>`;
+                        currentX += getTextWidth(part, 15);
                     }
-                    y += lineHeight;
                 }
+                currentY += 25;
             }
         }
-        currentY = y;
-        return svgChunk;
-    };
-
-    svg += renderProcessedContentSimple(processedContent, 20, currentY, 15, 25, 'content');
+    }
+    svg += `</g>`;
 
     const renderCommentsRecursive = (comments, depth) => {
         let subSvg = '';
         for (const comment of comments) {
             const xOffset = depth * 30;
-            const startX = 20 + xOffset;
-            
-            subSvg += `<g transform="translate(${startX}, ${currentY})">`;
+            subSvg += `<g transform="translate(${20 + xOffset}, ${currentY})">`;
             if (depth > 0) { subSvg += `<text x="-18" y="0" style="font-size:16px; fill:#888;">↳</text>`; }
             subSvg += `<text class="font comment-author">${escapeHtml(comment.author)}</text></g>`;
             currentY += 22;
-
-            let commentY = currentY;
-            const maxWidth = 740 - xOffset;
-            
-             for (const item of comment.processedContent) {
+            for (const item of comment.processedContent) {
                 if (item.type === 'image') {
-                    subSvg += `<image href="${item.uri}" x="${startX}" y="${commentY}" height="${IMAGE_HEIGHT}" width="${maxWidth}" preserveAspectRatio="xMidYMid meet" />`;
-                    commentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
-                } else if (item.type === 'line') {
-                    const originalLineText = item.chunks.map(c => c.type === 'text' ? c.text : c.key).join('');
-                    const wrappedLines = wrapText(originalLineText, maxWidth, 14);
-                    
-                    for (const wrappedLineText of wrappedLines) {
-                        let lineParts = wrappedLineText.split(new RegExp(`([${Object.keys(INLINE_IMAGE_KEYWORDS).join('')}])`, 'g')).filter(p => p);
-                        let currentX = startX;
+                    subSvg += `<image href="${item.uri}" x="${20 + xOffset}" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" />`;
+                    currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
+                } else {
+                    const maxWidth = 740 - xOffset;
+                    const wrappedLines = wrapText(item.text, maxWidth, 14);
+                    for (const line of wrappedLines) {
+                        let currentX = 20 + xOffset;
+                        const lineParts = line.split(/([□■])/g).filter(Boolean);
                         for (const part of lineParts) {
-                            if (inlineImageDataUris.has(part)) {
+                             if (inlineImageDataUris.has(part)) {
                                 const dataUri = inlineImageDataUris.get(part);
-                                subSvg += `<image href="${dataUri}" x="${currentX}" y="${commentY - 14 * 0.8}" width="14" height="14" />`;
+                                subSvg += `<image href="${dataUri}" x="${currentX}" y="${currentY - 14 * 0.8}" width="14" height="14"/>`;
                                 currentX += 14;
                             } else {
-                                subSvg += `<text x="${currentX}" y="${commentY}" class="font comment-content">${escapeHtml(part)}</text>`;
+                                subSvg += `<text x="${currentX}" y="${currentY}" class="font comment-content">${escapeHtml(part)}</text>`;
                                 currentX += getTextWidth(part, 14);
                             }
                         }
-                        commentY += 22;
+                        currentY += 22;
                     }
                 }
             }
-            currentY = commentY + 8;
+            currentY += 8;
             subSvg += renderCommentsRecursive(comment.children, depth + 1);
         }
         return subSvg;
