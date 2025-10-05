@@ -18,11 +18,12 @@ function getTextWidth(text, fontSize = 15) {
 
 function wrapText(text, maxWidth, fontSize = 15) { if (!text) return [' ']; const words = text.split(' '); const lines = []; let currentLine = words[0] || ''; for (let i = 1; i < words.length; i++) { const word = words[i]; const testLine = currentLine + ' ' + word; if (getTextWidth(testLine, fontSize) < maxWidth) { currentLine = testLine; } else { lines.push(currentLine); currentLine = word; } } lines.push(currentLine); return lines; }
 
-function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """).replace(/'/g, "'"); }
+function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
 
 
 // ■■■■■■■■■■■■■■■■■■설정■■■■■■■■■■■■■■■■■■
+
 const IMAGE_KEYWORDS = {
     '랜덤': 'https://picsum.photos/900/300',
     '주의': 'https://i.imgur.com/dJ8vU52.png',
@@ -30,14 +31,16 @@ const IMAGE_KEYWORDS = {
 };
 
 const INLINE_IMAGES = {
-    '□': 'https://i.ibb.co/QvLhmL22/1300b95171be096511678bddb0ad145aa502c19a0fed9f27e936078afa0be6bd.webp', 
-    '■': 'https://i.ibb.co/zhtLWyBs/3d0ce56134aa5e30fc03c7f707d14978340abc683e0cb5b004f17ae577a667be.webp', 
+    '□': 'https://i.imgur.com/VbB39nE.png',
+    '■': 'https://i.imgur.com/S56F2gI.png',
 };
+
 // ■■■■■■■■■■■■■■■■■■설정■■■■■■■■■■■■■■■■■■
 
 
 
 // 이미지 처리
+
 async function getImageDataUri(url) {
   try {
     const response = await fetch(url);
@@ -60,6 +63,7 @@ async function getImageDataUri(url) {
 
 
 // 핸들러
+
 export default {
   async fetch(request, env, ctx) {
     const cache = caches.default;
@@ -104,7 +108,7 @@ export default {
         } catch (e) {}
       }
     }
-
+    
     const processContent = async (text) => {
         const processed = [];
         if (!text) return processed;
