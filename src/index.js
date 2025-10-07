@@ -119,8 +119,11 @@ export default {
         for (let i = 0; i < parts.length; i++) {
             if (i % 2 === 0) {
                 if (parts[i]) {
-                    parts[i].split('\n').forEach(line => {
-                        if (line) processed.push({ type: 'text', text: line });
+                    parts[i].split('\n').forEach((line, index, arr) => {
+                        // 연속된 빈 줄도 하나의 요소로 처리하여 줄바꿈을 유지
+                        if (line || arr.length > 1) {
+                            processed.push({ type: 'text', text: line });
+                        }
                     });
                 }
             } else {
@@ -149,15 +152,20 @@ export default {
     await processCommentsRecursive(rootComments);
 
     const IMAGE_HEIGHT = 200;
-    const IMAGE_MARGIN_TOP = 15; // [수정] 이미지 위쪽 여백 값 설정
-    const IMAGE_MARGIN_BOTTOM = 10;
+    const IMAGE_TOP_MARGIN = 15; // [수정] 이미지 위쪽 여백 값
+    const IMAGE_BOTTOM_MARGIN = 10; // [수정] 이미지 아래쪽 여백 값 (이름 명확화)
 
     const calculateProcessedHeight = (processedItems, maxWidth, fontSize, lineHeight) => {
         let height = 0;
         processedItems.forEach(item => {
-            // [수정] 이미지 높이 계산 시 위쪽 여백(IMAGE_MARGIN_TOP)을 추가
-            if (item.type === 'image') { height += IMAGE_MARGIN_TOP + IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM; }
-            else { height += wrapText(item.text, maxWidth, fontSize).length * lineHeight; }
+            if (item.type === 'image') {
+                // [수정] 높이 계산에 위아래 여백을 모두 더해줌
+                height += IMAGE_TOP_MARGIN + IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN;
+            }
+            else {
+                const textToWrap = item.text || ' '; // 빈 줄도 높이를 차지하도록
+                height += wrapText(textToWrap, maxWidth, fontSize).length * lineHeight;
+            }
         });
         return height;
     };
@@ -227,14 +235,15 @@ export default {
     svg += `<g transform="translate(20, 0)">`;
     for (const item of processedContent) {
         if (item.type === 'image') {
-            currentY += IMAGE_MARGIN_TOP; // [수정] 이미지 렌더링 전, 위쪽 여백 추가
+            currentY += IMAGE_TOP_MARGIN; // [수정] 이미지를 그리기 전에 Y 좌표에 위쪽 여백을 더함
             svg += `<image href="${item.uri}" x="0" y="${currentY}" height="${IMAGE_HEIGHT}" width="740" preserveAspectRatio="xMidYMid meet" />`;
-            currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
+            currentY += IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN; // [수정] 이미지 높이와 아래쪽 여백을 더함
         } else {
-            const wrappedLines = wrapText(item.text, 740, 15);
+            const textToWrap = item.text || ' '; // 빈 줄도 렌더링되도록 처리
+            const wrappedLines = wrapText(textToWrap, 740, 15);
             for (const line of wrappedLines) {
                 svg += renderTextWithInlineImages(line, 0, currentY, 15, `class="font content"`).svg;
-                currentY += 25;
+                currentY += 25; // 줄 높이만큼 Y 좌표 이동
             }
         }
     }
@@ -252,12 +261,13 @@ export default {
 
             for (const item of comment.processedContent) {
                 if (item.type === 'image') {
-                    currentY += IMAGE_MARGIN_TOP; // [수정] 댓글 이미지 렌더링 전, 위쪽 여백 추가
+                    currentY += IMAGE_TOP_MARGIN; // [수정] 댓글 이미지에도 동일하게 적용
                     subSvg += `<image href="${item.uri}" x="${20 + xOffset}" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" />`;
-                    currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
+                    currentY += IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN;
                 } else {
+                    const textToWrap = item.text || ' ';
                     const maxWidth = 740 - xOffset;
-                    const wrappedLines = wrapText(item.text, maxWidth, 14);
+                    const wrappedLines = wrapText(textToWrap, maxWidth, 14);
                     for (const line of wrappedLines) {
                         subSvg += `<g transform="translate(${20 + xOffset}, 0)">`;
                         subSvg += renderTextWithInlineImages(line, 0, currentY, 14, `class="font comment-content"`).svg;
