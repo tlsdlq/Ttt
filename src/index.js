@@ -149,12 +149,14 @@ export default {
     await processCommentsRecursive(rootComments);
 
     const IMAGE_HEIGHT = 200;
+    const IMAGE_MARGIN_TOP = 15; // [수정] 이미지 위쪽 여백 값 설정
     const IMAGE_MARGIN_BOTTOM = 10;
 
     const calculateProcessedHeight = (processedItems, maxWidth, fontSize, lineHeight) => {
         let height = 0;
         processedItems.forEach(item => {
-            if (item.type === 'image') { height += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM; }
+            // [수정] 이미지 높이 계산 시 위쪽 여백(IMAGE_MARGIN_TOP)을 추가
+            if (item.type === 'image') { height += IMAGE_MARGIN_TOP + IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM; }
             else { height += wrapText(item.text, maxWidth, fontSize).length * lineHeight; }
         });
         return height;
@@ -225,6 +227,7 @@ export default {
     svg += `<g transform="translate(20, 0)">`;
     for (const item of processedContent) {
         if (item.type === 'image') {
+            currentY += IMAGE_MARGIN_TOP; // [수정] 이미지 렌더링 전, 위쪽 여백 추가
             svg += `<image href="${item.uri}" x="0" y="${currentY}" height="${IMAGE_HEIGHT}" width="740" preserveAspectRatio="xMidYMid meet" />`;
             currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
         } else {
@@ -249,7 +252,7 @@ export default {
 
             for (const item of comment.processedContent) {
                 if (item.type === 'image') {
-                    // 댓글 이미지 렌더링
+                    currentY += IMAGE_MARGIN_TOP; // [수정] 댓글 이미지 렌더링 전, 위쪽 여백 추가
                     subSvg += `<image href="${item.uri}" x="${20 + xOffset}" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" />`;
                     currentY += IMAGE_HEIGHT + IMAGE_MARGIN_BOTTOM;
                 } else {
