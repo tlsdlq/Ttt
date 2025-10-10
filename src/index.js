@@ -30,7 +30,7 @@ const IMAGE_KEYWORDS = {
 };
 
 const INLINE_IMAGES = {
-  '□': 'https://i.ibb.co/QvLhmL22/1300b95171be096511678bddb0ad145aa502c19a0fed9f27e936078afa0be6bd.webp', 
+  '□': 'https://picsum.photos/900/300', 
   '■': 'https://i.ibb.co/zhtLWyBs/3d0ce56134aa5e30fc03c7f707d14978340abc683e0cb5b004f17ae577a667be.webp'
 };
 
