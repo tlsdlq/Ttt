@@ -1,5 +1,4 @@
-// 유틸리티
-
+// 망할!!! 왜!!! 글마다 크기가 다른가요!!?!?!?
 function getTextWidth(text, fontSize = 15) {
   let width = 0;
   if (!text) return 0;
@@ -15,9 +14,8 @@ function getTextWidth(text, fontSize = 15) {
   }
   return width;
 }
-
 function wrapText(text, maxWidth, fontSize = 15) { if (!text) return [' ']; const words = text.split(' '); const lines = []; let currentLine = words[0] || ''; for (let i = 1; i < words.length; i++) { const word = words[i]; const testLine = currentLine + ' ' + word; if (getTextWidth(testLine, fontSize) < maxWidth) { currentLine = testLine; } else { lines.push(currentLine); currentLine = word; } } lines.push(currentLine); return lines; }
-
+// 망할! 왜! HTML도 막아야!! 으아아!
 function escapeHtml(unsafe) { if (!unsafe) return ''; return unsafe.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, "\"").replace(/'/g, "'"); }
 
 
@@ -37,7 +35,6 @@ const INLINE_IMAGES = {
 // ■■■■■■■■■■■■■■■■■■설정■■■■■■■■■■■■■■■■■■
 
 
-// 이미지 처리
 
 async function getImageDataUri(url) {
   try {
@@ -80,7 +77,7 @@ export default {
     await Promise.all(inlineImagePromises);
 
     const { searchParams } = new URL(request.url);
-    const postData = searchParams.get('글') || '제목|작성자|0|0|0|내용이 없습니다.';
+    const postData = searchParams.get('글') || '제목|작성자|0|0|0|내용이없다.';
     let title, author, views, upvotes, dislikes, content;
     try {
       const parts = postData.split('|');
@@ -89,7 +86,7 @@ export default {
       views = parts[2]; upvotes = parts[3]; dislikes = parts[4];
       content = decodeURIComponent(parts[5] || '').replace(/\//g, ' ');
     } catch (e) {
-      [title, author, views, upvotes, dislikes, content] = ['파싱 오류', '시스템', '0', '0', '0', 'URL의 글 파라미터 형식이 올바르지 않습니다.'];
+      [title, author, views, upvotes, dislikes, content] = ['오류', '시스템', '0', '0', '0', '파라미터 형식이 올바르지 않다.'];
     }
 
     const commentsMap = new Map();
@@ -120,7 +117,6 @@ export default {
             if (i % 2 === 0) {
                 if (parts[i]) {
                     parts[i].split('\n').forEach((line, index, arr) => {
-                        // 연속된 빈 줄도 하나의 요소로 처리하여 줄바꿈을 유지
                         if (line || arr.length > 1) {
                             processed.push({ type: 'text', text: line });
                         }
@@ -152,18 +148,17 @@ export default {
     await processCommentsRecursive(rootComments);
 
     const IMAGE_HEIGHT = 200;
-    const IMAGE_TOP_MARGIN = 15; // [수정] 이미지 위쪽 여백 값
-    const IMAGE_BOTTOM_MARGIN = 10; // [수정] 이미지 아래쪽 여백 값 (이름 명확화)
+    const IMAGE_TOP_MARGIN = 15;
+    const IMAGE_BOTTOM_MARGIN = 10;
 
     const calculateProcessedHeight = (processedItems, maxWidth, fontSize, lineHeight) => {
         let height = 0;
         processedItems.forEach(item => {
             if (item.type === 'image') {
-                // [수정] 높이 계산에 위아래 여백을 모두 더해줌
                 height += IMAGE_TOP_MARGIN + IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN;
             }
             else {
-                const textToWrap = item.text || ' '; // 빈 줄도 높이를 차지하도록
+                const textToWrap = item.text || ' ';
                 height += wrapText(textToWrap, maxWidth, fontSize).length * lineHeight;
             }
         });
@@ -235,15 +230,15 @@ export default {
     svg += `<g transform="translate(20, 0)">`;
     for (const item of processedContent) {
         if (item.type === 'image') {
-            currentY += IMAGE_TOP_MARGIN; // [수정] 이미지를 그리기 전에 Y 좌표에 위쪽 여백을 더함
+            currentY += IMAGE_TOP_MARGIN;
             svg += `<image href="${item.uri}" x="0" y="${currentY}" height="${IMAGE_HEIGHT}" width="740" preserveAspectRatio="xMidYMid meet" />`;
-            currentY += IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN; // [수정] 이미지 높이와 아래쪽 여백을 더함
+            currentY += IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN; // [수정] 이미지 높이와 아래쪽 여백을 더함(진짜... 좀 들으세요... 코드님...)
         } else {
-            const textToWrap = item.text || ' '; // 빈 줄도 렌더링되도록 처리
+            const textToWrap = item.text || ' ';
             const wrappedLines = wrapText(textToWrap, 740, 15);
             for (const line of wrappedLines) {
                 svg += renderTextWithInlineImages(line, 0, currentY, 15, `class="font content"`).svg;
-                currentY += 25; // 줄 높이만큼 Y 좌표 이동
+                currentY += 25;
             }
         }
     }
@@ -261,7 +256,7 @@ export default {
 
             for (const item of comment.processedContent) {
                 if (item.type === 'image') {
-                    currentY += IMAGE_TOP_MARGIN; // [수정] 댓글 이미지에도 동일하게 적용
+                    currentY += IMAGE_TOP_MARGIN;
                     subSvg += `<image href="${item.uri}" x="${20 + xOffset}" y="${currentY}" height="${IMAGE_HEIGHT}" width="${740 - xOffset}" preserveAspectRatio="xMidYMid meet" />`;
                     currentY += IMAGE_HEIGHT + IMAGE_BOTTOM_MARGIN;
                 } else {
@@ -291,7 +286,7 @@ export default {
 
     svg += `<g transform="translate(0, ${imageHeight - 70})"><line x1="0" y1="0" x2="780" y2="0" stroke="${theme.border}" /><g transform="translate(260, 20)"><rect width="120" height="35" rx="5" ry="5" fill="${theme.buttonBg}" stroke="${theme.border}" /><text x="60" y="23" class="font button-text">[추천! ${upvotes || 0}]</text></g><g transform="translate(400, 20)"><rect width="120" height="35" rx="5" ry="5" fill="${theme.buttonBg}" stroke="${theme.border}" /><text x="60" y="23" class="font button-text">[비추천! ${dislikes || 0}]</text></g></g></svg>`;
 
-    response = new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' }});
+    response = new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' }}); // 캐싱인데... 개인 도메인 없으면 쓸모가 거의 없다니!
     ctx.waitUntil(cache.put(request, response.clone()));
     return response;
   },
